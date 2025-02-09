@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyper - Where humans & AI flourish</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .drawer {
+            transition: transform 0.3s ease-in-out;
+        }
+        .drawer.open {
+            transform: translateX(0);
+        }
+        .drawer.closed {
+            transform: translateX(100%);
+        }
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 50;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            z-index: 51;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .image-preview {
+            width: 100%;
+            height: 300px;
+            background-color: #f3f4f6;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .image-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .image-preview .placeholder {
+            color: #9ca3af;
+            text-align: center;
+        }
+
+        .comment-text {
+            word-wrap: break-word;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .copy-tooltip {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+            animation: fadeInOut 1s ease-in-out;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    </style>
+    <script>
+        let isDragging = false;
+        let startY;
+        let startHeight;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatDrawer = document.getElementById('chatDrawer');
+            const dragHandle = document.getElementById('dragHandle');
+
+            dragHandle.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                startY = e.clientY;
+                startHeight = parseInt(getComputedStyle(chatDrawer).height, 10);
+                
+                document.body.style.cursor = 'ns-resize';
+                document.body.style.userSelect = 'none';
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (!isDragging) return;
+
+                const delta = startY - e.clientY;
+                const newHeight = Math.min(Math.max(startHeight + delta, 300), window.innerHeight * 0.9);
+                chatDrawer.style.height = `${newHeight}px`;
+            });
+
+            document.addEventListener('mouseup', function() {
+                isDragging = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            });
+        });
+
+        function toggleComments(postId) {
+            const comments = document.getElementById(`comments-${postId}`);
+            if (comments) {
+                comments.classList.toggle('hidden');
+            }
+        }
+
+        function showImageModal() {
+            document.getElementById('imageModal').style.display = 'block';
+            document.getElementById('modalBackdrop').style.display = 'block';
+        }
+
+        function closeImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
+            document.getElementById('modalBackdrop').style.display = 'none';
+        }
+
+        function uploadImage() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const preview = document.getElementById('imagePreview');
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        preview.innerHTML = '';
+                        preview.appendChild(img);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            input.click();
+        }
+
+        function generateAIImage() {
+            // Handle AI image generation logic here
+            console.log('Generating AI image...');
+            const preview = document.getElementById('imagePreview');
+            preview.innerHTML = '<div class="placeholder">Generating AI image...</div>';
+        }
+
+        function suggestText() {
+            const button = document.querySelector('button[onclick="suggestText()"]');
+            if (button) {
+                button.disabled = true;
+                button.classList.add('opacity-50');
+            }
+            
+            setTimeout(() => {
+                const postInput = document.querySelector('.post-input');
+                if (postInput) {
+                    postInput.value = 'Just wrapped up the Cyper demo today—feeling super excited about how smoothly everything went!#Cyper';
+                    postInput.dispatchEvent(new Event('input'));
+                    }
+                if (button) {
+                    button.disabled = false;
+                    button.classList.remove('opacity-50');
+            }
+            }, 1000);
+        }
+
+
+        function typeWriter(element, text, speed = 20) {
+            let i = 0;
+            element.textContent = '';
+            
+            function type() {
+                if (i < text.length) {
+                    element.textContent += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                }
+            }
+            
+            type();
+        }
+
+        function toggleDrawer(params) {
+            const drawer = document.getElementById('chatDrawer');
+            const actionContent = document.getElementById('actionContent');
+            
+            if (drawer.classList.contains('translate-y-full')) {
+                drawer.classList.remove('translate-y-full');
+                drawer.classList.add('translate-y-0');
+                
+                if (params) {
+                    const messageElement = document.createElement('div');
+                    messageElement.className = 'flex gap-3 mb-4';
+                    
+                    let response = '';
+                    switch(params) {
+                        case '#who-is-cyper':
+                            response = 'Cyper is a revolutionary AI-powered social media platform that combines advanced machine learning with natural language processing to create meaningful connections.';
+                            break;
+                        case '#cyper-investors':
+                            response = 'Cyper is backed by leading venture capital firms and tech industry veterans, including Sequoia Capital, Andreessen Horowitz, and several prominent angel investors from Silicon Valley.';
+                            break;
+                        case '#cyper-disruption':
+                            response = 'Cyper is disrupting social media through its innovative AI-first approach, focusing on meaningful connections rather than engagement metrics. Our platform uses advanced algorithms to understand context and facilitate genuine interactions.';
+                            break;
+                        case '#ticktok-xiaohongshu':
+                            response = "The potential TikTok ban has led to a surge in downloads for Xiaohongshu, propelling it to the #1 spot on the US App Store. Xiaohongshu's rise is partly due to its blend of lifestyle content, user-generated posts, and e-commerce features, similar to what TikTok offered.The influx of American users on Xiaohongshu could foster cross-cultural interactions, as it's primarily a platform used by Chinese speakers.";
+                            break;
+                    }
+                    
+                    messageElement.innerHTML = `
+                        <div class="w-7 h-7 bg-gray-200 rounded-full flex-shrink-0 flex items-center justify-center">
+                            <span class="text-gray-600 font-medium text-xs">A</span>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <div class="bg-gray-100 rounded-xl px-3 py-1.5">
+                                <p class="text-sm"></p>
+                            </div>
+                        </div>
+                    `;
+                    actionContent.appendChild(messageElement);
+
+                    const messageText = messageElement.querySelector('p');
+                    typeWriter(messageText, response);
+                    
+                    actionContent.scrollTop = actionContent.scrollHeight;
+                }
+            } else {
+                drawer.classList.remove('translate-y-0');
+                drawer.classList.add('translate-y-full');
+            }
+        }
+
+        function sendQuickCommand(command) {
+            const input = document.getElementById('chatInput');
+            input.value = command;
+            sendMessage({type: 'QUICK_COMMAND'});
+        }
+
+        async function sendMessage(options) {
+            const userEmail = document.getElementById('userEmail')?.textContent;
+            if (!userEmail) {
+                alert('Please login to send message');
+                return;
+            }
+
+            const input = document.getElementById('chatInput');
+            const actionContent = document.getElementById('actionContent');
+            const message = input.value.trim();
+            
+            if (message) {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'flex justify-end mb-4';
+                messageElement.innerHTML = `
+                    <div class="flex flex-col items-end">
+                        <div class="flex flex-col gap-2">
+                            <div class="bg-blue-500 text-white rounded-xl px-3 py-1.5">
+                                <p class="text-xs"></p>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Just Now</p>
+                    </div>
+                `;
+                actionContent.appendChild(messageElement);
+                
+      
+                const messageText = messageElement.querySelector('p');
+                typeWriter(messageText, message);
+
+                input.value = '';
+                actionContent.scrollTop = actionContent.scrollHeight;
+
+                if (options?.type == 'QUICK_COMMAND') return;
+                try {
+                    const response = await fetch('/agent/system/reply', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ content: message })
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        appendReply(result.text)
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    console.error('Error calling system reply:', error);
+                }
+            }
+        }
+
+        async function sendComment(postId, input) {
+            const commentSection = document.getElementById(`comments-${postId}`);
+            if (!commentSection || !input.value.trim()) return;
+
+            try {
+                const commentElement = document.createElement('div');
+                commentElement.className = 'flex gap-2 mb-2';
+                commentElement.innerHTML = `
+                    <div class="w-7 h-7 bg-gray-200 rounded-full flex-shrink-0"></div>
+                    <div class="bg-gray-100 rounded-xl px-3 py-1.5">
+                        <div class="text-xs font-medium">You</div>
+                        <div class="comment-text">${input.value}</div>
+                    </div>
+                `;
+                
+                const inputContainer = commentSection.querySelector('.flex.gap-2:last-child');
+                commentSection.insertBefore(commentElement, inputContainer);
+                
+                const response = await fetch('/content/reply', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        post: postId,
+                        reply: input.value.trim()
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to send comment');
+                }
+                if (response.status === 200) {
+                    const data = await response.json();
+                    if (data.msg === "MENTIONED_SYS_AGENT") {
+                        const actionContent = document.getElementById('actionContent');
+                        const messageElement = document.createElement('div');
+                messageElement.className = 'flex gap-3 mb-4';
+                messageElement.innerHTML = `
+                    <div class="w-7 h-7 bg-gray-200 rounded-full flex-shrink-0 flex items-center justify-center">
+                                <span class="text-gray-600 font-medium text-xs">S</span>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <div class="bg-gray-100 rounded-xl px-3 py-1.5">
+                                    <p class="text-sm">Successfully processed your SUI token send request.</p>
+                        </div>
+                    </div>
+                `;
+                actionContent.appendChild(messageElement);
+                    }
+                }
+
+                // 清空输入框
+                input.value = '';
+
+                // 特殊处理
+                if (postId === 'btc') {
+                    setTimeout(() => {
+                        toggleDrawer();
+                        appendConfirmReply("Buy $1000 worth of BTC with USDC ...");            
+                        actionContent.scrollTop = actionContent.scrollHeight;
+                    }, 1500); 
+                            }
+            } catch (error) {
+                console.error('Error sending comment:', error);
+            }
+        }
+
+        function appendReply(text) {
+            const actionContent = document.getElementById('actionContent');
+            const messageElement = document.createElement('div');
+
+            messageElement.className = 'flex gap-2 mb-2';
+                messageElement.innerHTML = `
+                <div class="w-6 h-6 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center">
+                    <span class="text-blue-600 font-medium text-xs">S</span>
+                </div>
+                <div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl px-3 py-1.5">
+                        <div class="flex items-center gap-2">
+                            <p class="text-blue-700 text-xs"></p>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-0.5">Just Now</p>
+                </div>
+            `;
+            actionContent.appendChild(messageElement);
+
+            const replyElement = messageElement.querySelector('p');
+            typeWriter(replyElement, text);
+            actionContent.scrollTop = actionContent.scrollHeight;
+        }
+
+        function appendConfirmReply(text) {
+            const actionContent = document.getElementById('actionContent');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'flex gap-3 mb-4';
+                messageElement.innerHTML = `
+                <div class="w-7 h-7 bg-gray-200 rounded-full flex-shrink-0 flex items-center justify-center">
+                    <span class="text-gray-600 font-medium text-xs">A</span>
+                </div>
+                        <div class="flex flex-col gap-2>
+                    <div class="bg-gray-100 rounded-xl px-3 py-1.5">
+                        <p class="text-sm"></p>
+                    </div>
+                            <div class="flex gap-2">
+                                <button onclick="handleBtcSwap('agree')" class="px-4 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm transition-colors">
+                                    Confirm
+                                </button>
+                                <button onclick="handleBtcSwap('reject')" class="px-4 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm transition-colors">
+                                    Reject
+                                </button>
+                            </div>
+                </div>
+            `;
+            actionContent.appendChild(messageElement);
+
+            const replyElement = messageElement.querySelector('p');
+            typeWriter(replyElement, text);
+        }
+
+        // 添加AI建议评论的函数
+        function suggestComment(postId) {
+            const commentSection = document.getElementById(`comments-${postId}`);
+            if (!commentSection) return;
+
+            const input = commentSection.querySelector('textarea');
+            if (!input) return;
+
+            const button = commentSection.querySelector('button:last-child');
+            if (button) {
+                button.disabled = true;
+                button.classList.add('opacity-50');
+            }
+
+            setTimeout(() => {
+                let content = "棒，晚上和@小鱼儿 一起撸串庆祝下呗！";
+
+                input.value = content;
+                if (button) {
+                    button.disabled = false;
+                    button.classList.remove('opacity-50');
+                }
+            }, 1000);
+        }
+
+        // 添加处理BTC交换的函数
+        function handleBtcSwap(action) {
+            const actionContent = document.getElementById('actionContent');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'flex gap-3 mb-4';
+            
+            if (action === 'agree') {
+                messageElement.innerHTML = `
+                    <div class="w-7 h-7 bg-gray-200 rounded-full flex-shrink-0 flex items-center justify-center">
+                        <span class="text-gray-600 font-medium text-xs">A</span>
+                    </div>
+                    <div class="bg-gray-100 rounded-xl px-3 py-1.5">
+                        <p class="text-sm"></p>
+                    </div>
+                `;
+                actionContent.appendChild(messageElement);
+                const replyElement = messageElement.querySelector('p');
+                typeWriter(replyElement, "Great! Processing your BTC swap transaction...");
+            } else {
+                messageElement.innerHTML = `
+                    <div class="w-7 h-7 bg-gray-200 rounded-full flex-shrink-0 flex items-center justify-center">
+                        <span class="text-gray-600 font-medium text-xs">A</span>
+                    </div>
+                    <div class="bg-gray-100 rounded-xl px-3 py-1.5">
+                        <p class="text-sm"></p>
+                    </div>
+                `;
+                actionContent.appendChild(messageElement);
+                const replyElement = messageElement.querySelector('p');
+                typeWriter(replyElement, "Transaction cancelled. Let me know if you change your mind.");
+            }
+            
+            actionContent.scrollTop = actionContent.scrollHeight;
+        }
+
+        async function suggestPost() {
+            const textarea = document.getElementById('postContent');
+            const suggestButton = document.getElementById('suggestButton');
+            const suggestSpinner = document.getElementById('suggestSpinner');
+            const content = textarea.value.trim();
+            
+            if (!content) {
+                alert('Please enter some content first');
+                return;
+            }
+            
+            try {
+                // Show loading state
+                suggestButton.disabled = true;
+                suggestSpinner.classList.remove('hidden');
+                
+                const response = await fetch('/content/suggest', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ content })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    textarea.value = data.text;
+                    // Trigger the height adjustment
+                    textarea.style.height = '';
+                    textarea.style.height = textarea.scrollHeight + 'px';
+                } else {
+                    alert('Failed to get suggestion');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to get suggestion');
+            } finally {
+                // Hide loading state
+                suggestButton.disabled = false;
+                suggestSpinner.classList.add('hidden');
+            }
+        }
+
+        function showCopyTooltip() {
+            const tooltip = document.getElementById('copyTooltip');
+            if (tooltip) {
+                tooltip.style.display = 'block';
+                setTimeout(() => {
+                    tooltip.style.display = 'none';
+                }, 1000);
+            }
+        }
+
+        function copyToClipboard(text, event) {
+            navigator.clipboard.writeText(text).then(() => {
+                showCopyTooltip();
+            });
+        }
+
+        function createNewPost() {
+            // Check if user is logged in
+            const userEmail = document.getElementById('userEmail')?.textContent;
+            if (!userEmail) {
+                alert('Please login to create a post');
+                return;
+            }
+
+            const content = document.getElementById('postContent').value;
+            if (!content.trim()) return;
+
+            const postId = 'post-' + Date.now();
+            // Create new post card
+            const newPost = document.createElement('div');
+            newPost.className = 'md:column-span-1 bg-white rounded-lg shadow p-4 space-y-4 break-inside-avoid mb-6';
+            newPost.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-gray-200 rounded-full"></div>
+                    <div>
+                        <p class="font-medium text-sm">${userEmail}</p>
+                        <p class="text-gray-500 text-xs">Just Now</p>
+                    </div>
+                </div>
+                <p class="text-sm">${content}</p>
+                <div class="flex items-center gap-4">
+                    <button class="flex items-center gap-1.5 text-gray-500 hover:text-gray-700" onclick="toggleLike('${postId}')">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                        <span class="text-sm">0</span>
+                    </button>
+                    <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                        </svg>
+                        Share
+                    </button>
+                    <button onclick="toggleComments('${postId}')" class="flex items-center gap-1.5 text-gray-500 hover:text-gray-700">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <span class="text-sm">0</span>
+                    </button>
+                </div>
+                <div id="comments-${postId}" class="space-y-2 hidden text-sm">
+                    <div class="flex gap-2">
+                        <textarea 
+                            class="flex-1 bg-gray-100 rounded-full px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden whitespace-nowrap"
+                            placeholder="Write a comment..."
+                            rows="1"
+                            oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
+                        ></textarea>
+                        <button onclick="sendComment('${postId}', this.previousElementSibling)" class="px-3 py-1.5 bg-blue-500 text-white rounded-full hover:bg-blue-600">
+                            Send
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Get the current first post
+            const firstPost = document.getElementById('firstPostCard');
+            
+            // Remove the ID from the current first post
+            firstPost.removeAttribute('id');
+            
+            // Add the ID to the new post
+            newPost.id = 'firstPostCard';
+            
+            // Insert the new post before the current first post
+            firstPost.parentNode.insertBefore(newPost, firstPost);
+            
+            // Clear the textarea
+            document.getElementById('postContent').value = '';
+            document.getElementById('postContent').style.height = '';
+        }
+    </script>
+</head>
+<body class="bg-gray-100">
+    <!-- Modal Backdrop -->
+    <div id="modalBackdrop" class="modal-backdrop" onclick="closeImageModal()"></div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="modal">
+        <div class="flex flex-col">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Add Image</h3>
+            <div id="imagePreview" class="image-preview">
+                <div class="placeholder">
+                    <svg class="w-12 h-12 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <div class="text-gray-500">No image selected</div>
+                </div>
+            </div>
+            <div class="flex gap-2 mt-4">
+                <button onclick="uploadImage()" class="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm">
+                    Upload Image
+                </button>
+                <button onclick="generateAIImage()" class="flex-1 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors text-sm">
+                    Cyper Generate
+                </button>
+                <button onclick="closeImageModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors text-sm">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow mb-6">
+            <nav class="flex items-center p-4 border-b border-gray-200">
+                <div class="flex items-center gap-3 mr-6">
+                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+                        C
+                    </div>
+                    <span class="text-xl font-semibold">Cyper</span>
+                </div>
+
+                <div class="h-6 w-px bg-gray-200 mx-2"></div>
+
+                <div class="flex-1 flex flex-wrap items-center gap-2">
+                    <a href="#" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md font-medium">SQUARE</a>
+                    <a href="#" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md font-medium">BACKYARD</a>
+                    <a href="/store" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md font-medium">STORE</a>
+                </div>
+
+                <% console.log('=========================================='); %>
+                <% console.log('EJS Template Debug - userAddress:', typeof userAddress, userAddress); %>
+                <% console.log('EJS Template Debug - userInfo:', typeof userInfo, userInfo); %>
+                <% console.log('=========================================='); %>
+
+                <%_ if (typeof userAddress === 'string' && userAddress.length > 0) { _%>
+                    <div class="flex items-center gap-4">
+                        <%_ if (userInfo && userInfo.email) { _%>
+                            <div class="text-gray-700" id="userEmail">
+                                <%= userInfo.email %>
+                            </div>
+                        <%_ } _%>
+                        <div class="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg font-mono text-sm cursor-pointer hover:bg-gray-200 transition-colors" 
+                             onclick="copyToClipboard('<%= userAddress %>', event)"
+                             data-clipboard="<%= userAddress %>">
+                            <%= userAddress.substring(0, 6) %>...<%= userAddress.substring(userAddress.length - 4) %>
+                        </div>
+                        <button onclick="window.location.href='/auth/logout'" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+                            Logout
+                        </button>
+                    </div>
+                <%_ } else { _%>
+                    <button onclick="window.location.href='/auth/login'" class="ml-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                        Login
+                    </button>
+                <%_ } _%>
+            </nav>
+        </div>
+
+        <!-- Content Grid -->
+        <div class="max-w-7xl mx-auto py-6">
+            <div class="columns-1 md:columns-2 lg:columns-3 gap-6 [column-fill:_balance] space-y-6">
+                <!-- Post Box -->
+                <div class="w-[calc(200%+1.5rem)] bg-white rounded-lg shadow break-inside-avoid mb-6">
+                    <div class="p-4 border-b border-gray-200">
+                        <textarea 
+                            class="post-input w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none overflow-hidden text-sm"
+                            placeholder="What's on your mind?"
+                            rows="1"
+                            id="postContent"
+                            oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
+                        ></textarea>
+                    </div>
+                    <div class="px-4 py-2 flex items-center justify-between">
+                        <div class="flex gap-4">
+                            <button class="p-2 hover:bg-gray-100 rounded-lg" onclick="showImageModal()">
+                                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </button>
+                            <button class="p-2 hover:bg-gray-100 rounded-lg">
+                                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </button>
+                            <button class="p-2 hover:bg-gray-100 rounded-lg">
+                                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                </svg>
+                            </button>
+
+                            </div>
+                            <div class="flex gap-2">
+                            <button id="suggestButton" onclick="suggestPost()" class="px-3 py-1.5 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 font-medium">
+                                <span>Suggest</span>
+                                <svg id="suggestSpinner" class="w-4 h-4 animate-spin hidden" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </button>
+                            <button onclick="createNewPost()" class="px-3 py-1.5 bg-sky-500 text-white rounded-md hover:bg-sky-600 font-medium">
+                                Post
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Post Card -->
+                <div id="firstPostCard" class="md:column-span-1 md:mt-[200px] bg-white rounded-lg shadow p-4 space-y-4 break-inside-avoid mb-6">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-gray-200 rounded-full"></div>
+                        <div>
+                            <div class="font-medium">John Doe</div>
+                            <div class="text-sm text-gray-500">5 minutes ago</div>
+                        </div>
+                    </div>
+                    <p>Get my first car today! 🚗</p>
+                    <div class="aspect-video bg-gray-100 rounded-lg"></div>
+                    <div class="flex justify-between py-2 border-b border-gray-200">
+                        <div class="flex items-center">
+                            <div class="flex -space-x-2 mr-2">
+                                <div class="w-5 h-5 border-2 border-white rounded-full bg-gray-200"></div>
+                                <div class="w-5 h-5 border-2 border-white rounded-full bg-gray-200"></div>
+                            </div>
+                            <span class="text-xs text-gray-500">Sarah and 245 others</span>
+                        </div>
+                        <div class="text-xs text-gray-500">43 comments • 12 shares</div>
+                    </div>
+                    <div class="flex justify-between mt-3">
+                        <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                            </svg>
+                            Like
+                        </button>
+                        <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                            Share
+                        </button>
+                        <button onclick="toggleComments('post1')" class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Comment
+                        </button>
+                    </div>
+                    <div id="comments-post1" class="space-y-2 hidden text-sm">
+                        <div class="flex gap-2">
+                            <div class="w-7 h-7 bg-gray-200 rounded-full flex-shrink-0"></div>
+                            <div class="bg-gray-100 rounded-xl px-3 py-1.5">
+                                <div class="text-xs font-medium">Sarah Smith</div>
+                                <div class="comment-text">Great!</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <textarea 
+                                   class="flex-1 bg-gray-100 rounded-full px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden whitespace-nowrap"
+                                   placeholder="Write a comment..."
+                                   style="height: 32px; line-height: 20px;"
+                                   oninput="this.style.height = '32px'; this.style.height = Math.min(64, this.scrollHeight) + 'px'"></textarea>
+                            <button onclick="suggestComment('post1')" class="px-2.5 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full text-xs font-medium transition-colors flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                            </button>
+                            <button onclick="sendComment('post1', this.parentElement.querySelector('textarea'))" class="px-2.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-xs font-medium transition-colors flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+
+                <div class="md:column-span-1 bg-white rounded-lg shadow p-4 space-y-4 break-inside-avoid mb-6">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-gray-200 rounded-full"></div>
+                        <div>
+                            <div class="font-medium">Bitcoin Magazine</div>
+                            <div class="text-sm text-gray-500">3 hours ago</div>
+                        </div>
+                    </div>
+                    <p>JUST IN: CNBC reports "#Bitcoin approaches $100,000 again as a cool inflation reading fuels risk appetite" 🚀</p>
+                    <div class="aspect-video bg-gray-100 rounded-lg"></div>
+                    <div class="flex justify-between py-2 border-b border-gray-200">
+                        <div class="flex items-center">
+                            <div class="flex -space-x-2 mr-2">
+                                <div class="w-5 h-5 border-2 border-white rounded-full bg-gray-200"></div>
+                                <div class="w-5 h-5 border-2 border-white rounded-full bg-gray-200"></div>
+                            </div>
+                            <span class="text-xs text-gray-500">Mike and 156 others</span>
+                        </div>
+                        <div class="text-xs text-gray-500">28 comments • 8 shares</div>
+                    </div>
+                    <div class="flex justify-between mt-3">
+                        <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                            </svg>
+                            Like
+                        </button>
+                        <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                            Share
+                        </button>
+                        <button onclick="toggleComments('btc')" class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Comment
+                        </button>
+                    </div>
+                    <div id="comments-btc" class="space-y-2 hidden text-sm">
+                        <div class="flex gap-2">
+                            <textarea 
+                                   class="flex-1 bg-gray-100 rounded-full px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden whitespace-nowrap"
+                                   placeholder="Write a comment..."
+                                   style="height: 32px; line-height: 20px;"
+                                   oninput="this.style.height = '32px'; this.style.height = Math.min(64, this.scrollHeight) + 'px'"></textarea>
+                            <button onclick="suggestComment('btc')" class="px-2.5 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full text-xs font-medium transition-colors flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                            </button>
+                            <button onclick="sendComment('btc', this.parentElement.querySelector('textarea'))" class="px-2.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-xs font-medium transition-colors flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Placeholder -->
+                <div class="w-full h-[145px] opacity-0 pointer-events-none break-inside-avoid mb-6">.</div>
+
+                <!-- Design Hub Card -->
+                <div class="bg-white rounded-lg shadow p-4 space-y-4 break-inside-avoid mb-6">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-gray-200 rounded-full"></div>
+                        <div>
+                            <div class="font-medium">Pop Hub</div>
+                            <div class="text-sm text-gray-500">3 hours ago</div>
+                        </div>
+                    </div>
+                    <p>Xiaohongshu, also known as RedNote, has hit #1 on the US App Store following news of a possible TikTok ban on January 19th.</p>
+                    <div class="aspect-video bg-gray-100 rounded-lg"></div>
+                    <div class="flex flex-wrap gap-2">
+                        <span onclick="toggleDrawer('#ticktok-xiaohongshu')" class="cursor-pointer px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium hover:bg-blue-200 transition-colors">#How does TikTok ban affect Xiaohongshu?</span>
+                    </div>
+
+                    <div class="flex justify-between py-2 border-b border-gray-200">
+                        <div class="flex items-center">
+                            <div class="flex -space-x-2 mr-2">
+                                <div class="w-5 h-5 border-2 border-white rounded-full bg-gray-200"></div>
+                                <div class="w-5 h-5 border-2 border-white rounded-full bg-gray-200"></div>
+                            </div>
+                            <span class="text-xs text-gray-500">Design and 189 others</span>
+                        </div>
+                        <div class="text-xs text-gray-500">89 comments • 45 shares</div>
+                    </div>
+                    <div class="flex justify-between mt-3">
+                        <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                            </svg>
+                            Like
+                        </button>
+                        <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                            Share
+                        </button>
+                        <button onclick="toggleComments('startup-news')" class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Comment
+                        </button>
+                    </div>
+                    <div id="comments-startup-news" class="space-y-2 hidden text-sm">
+                        <div class="flex gap-2">
+                            <div class="w-7 h-7 bg-gray-200 rounded-full flex-shrink-0"></div>
+                            <div class="bg-gray-100 rounded-xl px-3 py-1.5">
+                                <div class="text-xs font-medium">John Doe</div>
+                                <div class="comment-text">Exciting startup news!</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <textarea 
+                                   class="flex-1 bg-gray-100 rounded-full px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden whitespace-nowrap"
+                                   placeholder="Write a comment..."
+                                   style="height: 32px; line-height: 20px;"
+                                   oninput="this.style.height = '32px'; this.style.height = Math.min(64, this.scrollHeight) + 'px'"></textarea>
+                            <button onclick="suggestComment('startup-news')" class="px-2.5 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full text-xs font-medium transition-colors flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                            </button>
+                            <button onclick="sendComment('startup-news', this.parentElement.querySelector('textarea'))" class="px-2.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-xs font-medium transition-colors flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tech Community Card -->
+                <div class="md:column-span-1 bg-white rounded-lg shadow p-4 space-y-4 break-inside-avoid mb-6">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-gray-200 rounded-full"></div>
+                        <div>
+                            <div class="font-medium">Tech Community</div>
+                            <div class="text-sm text-gray-500">1 day ago</div>
+                        </div>
+                    </div>
+                    <p>Latest tech updates! 🚀 AI and machine learning breakthroughs this week.</p>
+                    <div class="aspect-video bg-gray-100 rounded-lg"></div>
+                    <div class="flex justify-between py-2 border-b border-gray-200">
+                        <div class="flex items-center">
+                            <div class="flex -space-x-2 mr-2">
+                                <div class="w-5 h-5 border-2 border-white rounded-full bg-gray-200"></div>
+                                <div class="w-5 h-5 border-2 border-white rounded-full bg-gray-200"></div>
+                            </div>
+                            <span class="text-xs text-gray-500">Tech Team and 324 others</span>
+                        </div>
+                        <div class="text-xs text-gray-500">56 comments • 23 shares</div>
+                    </div>
+                    <div class="flex justify-between mt-3">
+                        <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                            </svg>
+                            Like
+                        </button>
+                        <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                            Share
+                        </button>
+                        <button onclick="toggleComments('tech-community')" class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Comment
+                        </button>
+                    </div>
+                    <div id="comments-tech-community" class="space-y-2 hidden text-sm">
+                        <div class="flex gap-2">
+                            <div class="w-7 h-7 bg-gray-200 rounded-full flex-shrink-0"></div>
+                            <div class="bg-gray-100 rounded-xl px-3 py-1.5">
+                                <div class="text-xs font-medium">Tech Enthusiast</div>
+                                <div class="comment-text">Great community initiative!</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <textarea 
+                                   class="flex-1 bg-gray-100 rounded-full px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden whitespace-nowrap"
+                                   placeholder="Write a comment..."
+                                   style="height: 32px; line-height: 20px;"
+                                   oninput="this.style.height = '32px'; this.style.height = Math.min(64, this.scrollHeight) + 'px'"></textarea>
+                            <button onclick="suggestComment('tech-community')" class="px-2.5 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full text-xs font-medium transition-colors flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                            </button>
+                            <button onclick="sendComment('tech-community', this.parentElement.querySelector('textarea'))" class="px-2.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-xs font-medium transition-colors flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Startup News Card -->
+                <div class="md:column-span-1 bg-white rounded-lg shadow p-4 space-y-4 break-inside-avoid mb-6">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-gray-200 rounded-full"></div>
+                        <div>
+                            <div class="font-medium">Startup News</div>
+                            <div class="text-sm text-gray-500">5 hours ago</div>
+                        </div>
+                    </div>
+                    <p>Breaking: New revolutionary AI social media startup raises $100M in seed funding! 🚀💰</p>
+                    <div class="aspect-video bg-gray-100 rounded-lg"></div>
+                    <p class="text-sm text-gray-600">The startup aims to revolutionize how we interact with AI in our daily lives. Their groundbreaking technology combines natural language processing with advanced machine learning algorithms.</p>
+
+                    <div class="flex flex-wrap gap-2">
+                        <span onclick="toggleDrawer('#who-is-cyper')" class="cursor-pointer px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium hover:bg-blue-200 transition-colors">#Who is Cyper</span>
+                        <span onclick="toggleDrawer('#cyper-investors')" class="cursor-pointer px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium hover:bg-green-200 transition-colors">#Who are Cyper's investors</span>
+                        <span onclick="toggleDrawer('#cyper-disruption')" class="cursor-pointer px-2.5 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium hover:bg-purple-200 transition-colors">#How Cyper disrupts social media</span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-gray-200">
+                        <div class="flex items-center">
+                            <div class="flex -space-x-2 mr-2">
+                                <div class="w-5 h-5 border-2 border-white rounded-full bg-gray-200"></div>
+                                <div class="w-5 h-5 border-2 border-white rounded-full bg-gray-200"></div>
+                            </div>
+                            <span class="text-xs text-gray-500">Investors and 432 others<</span>
+                        </div>
+                        <div class="text-xs text-gray-500">89 comments • 45 shares</div>
+                    </div>
+                    <div class="flex justify-between mt-3">
+                        <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                            </svg>
+                            Like
+                        </button>
+                        <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                            Share
+                        </button>
+                        <button onclick="toggleComments('design-hub')" class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Comment
+                        </button>
+                    </div>
+                    <div id="comments-design-hub" class="space-y-2 hidden text-sm">
+                        <div class="flex gap-2">
+                            <div class="w-7 h-7 bg-gray-200 rounded-full flex-shrink-0"></div>
+                            <div class="bg-gray-100 rounded-xl px-3 py-1.5">
+                                <div class="text-xs font-medium">Design Pro</div>
+                                <div class="comment-text">Love the new design trends!</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <textarea 
+                                   class="flex-1 bg-gray-100 rounded-full px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden whitespace-nowrap"
+                                   placeholder="Write a comment..."
+                                   style="height: 32px; line-height: 20px;"
+                                   oninput="this.style.height = '32px'; this.style.height = Math.min(64, this.scrollHeight) + 'px'"></textarea>
+                            <button onclick="suggestComment('design-hub')" class="px-2.5 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full text-xs font-medium transition-colors flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                            </button>
+                            <button onclick="sendComment('design-hub', this.parentElement.querySelector('textarea'))" class="px-2.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-xs font-medium transition-colors flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div class="md:column-span-1 bg-white rounded-lg shadow p-4 space-y-4 break-inside-avoid mb-6">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-gray-200 rounded-full"></div>
+                        <div>
+                            <div class="font-medium">Jane Smith666</div>
+                            <div class="text-sm text-gray-500">3 hours ago</div>
+                        </div>
+                    </div>
+                    <p>New project launch! 🎉</p>
+                    <div class="aspect-video bg-gray-100 rounded-lg"></div>
+                    <div class="flex justify-between py-2 border-b border-gray-200">
+                        <div class="flex items-center">
+                            <div class="flex -space-x-2 mr-2">
+                                <div class="w-5 h-5 border-2 border-white rounded-full bg-gray-200"></div>
+                                <div class="w-5 h-5 border-2 border-white rounded-full bg-gray-200"></div>
+                            </div>
+                            <span class="text-xs text-gray-500">Mike and 156 others</span>
+                        </div>
+                        <div class="text-xs text-gray-500">28 comments • 8 shares</div>
+                    </div>
+                    <div class="flex justify-between mt-3">
+                        <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                            </svg>
+                            Like
+                        </button>
+                        <button class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                            Share
+                        </button>
+                        <button onclick="toggleComments('post3')" class="flex items-center gap-2 px-6 py-2 hover:bg-gray-50 text-gray-600 text-xs font-medium flex-1 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Comment
+                        </button>
+                    </div>
+                    <div id="comments-post3" class="space-y-2 hidden text-sm">
+                        <div class="flex gap-2">
+                            <div class="w-7 h-7 bg-gray-200 rounded-full flex-shrink-0"></div>
+                            <div class="bg-gray-100 rounded-xl px-3 py-1.5">
+                                <div class="text-xs font-medium">Alex Brown</div>
+                                <div class="comment-text">Can't wait to see more updates!</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <textarea 
+                                   class="flex-1 bg-gray-100 rounded-full px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden whitespace-nowrap"
+                                   placeholder="Write a comment..."
+                                   style="height: 32px; line-height: 20px;"
+                                   oninput="this.style.height = '32px'; this.style.height = Math.min(64, this.scrollHeight) + 'px'"></textarea>
+                            <button onclick="suggestComment('post3')" class="px-2.5 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full text-xs font-medium transition-colors flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                            </button>
+                            <button onclick="sendComment('post3', this.parentElement.querySelector('textarea'))" class="px-2.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-xs font-medium transition-colors flex items-center">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Console Button -->
+    <button onclick="toggleDrawer()" class="group fixed bottom-6 right-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-5 py-3 rounded-xl shadow-lg hover:shadow-indigo-500/50 transition-all duration-300 flex items-center gap-3 border border-white/20 backdrop-blur-sm">
+        <div class="relative">
+            <svg class="w-5 h-5 relative z-10 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+        </div>
+        <span class="font-medium tracking-wide text-sm relative z-10">CYPER MIND</span>
+    </button>
+
+    <div id="chatDrawer" class="fixed inset-x-0 bottom-0 w-full bg-white shadow-lg transform translate-y-full transition-transform duration-300 ease-in-out rounded-t-xl" style="height: 50vh; min-height: 300px; max-height: 90vh;">
+        <!-- Drag Handle -->
+        <div id="dragHandle" class="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize flex justify-center items-center hover:bg-gray-100">
+            <div class="w-20 h-1 bg-gray-300 rounded-full"></div>
+        </div>
+        <!-- Drawer Header -->
+        <div class="flex items-center justify-between p-4 border-b mt-1.5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-medium">CYPER MIND</h3>
+                    <p class="text-sm text-gray-500">Type or speak to interact with agentic tasks </p>
+                </div>
+            </div>
+            <button onclick="toggleDrawer()" class="p-2 hover:bg-gray-100 rounded-full">
+                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Action Content -->
+        <div id="actionContent" class="p-10 h-[calc(100%-12rem)] overflow-y-auto space-y-2">
+            <!-- AI Message -->
+            <div class="flex gap-2 mb-2">
+                <div class="w-6 h-6 bg-green-100 rounded-full flex-shrink-0 flex items-center justify-center">
+                    <span class="text-green-600 font-medium text-xs">S</span>
+                </div>
+                <div>
+                    <div class="bg-green-50 border border-green-200 rounded-xl px-3 py-1.5">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <p class="text-green-700 text-xs">Agent Soul just talke with Jane's Agent.</p>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-0.5">10 minutes ago</p>
+                </div>
+            </div>
+            <div class="flex gap-2 mb-2">
+                <div class="w-6 h-6 bg-green-100 rounded-full flex-shrink-0 flex items-center justify-center">
+                    <span class="text-green-600 font-medium text-xs">S</span>
+                </div>
+                <div>
+                    <div class="bg-green-50 border border-green-200 rounded-xl px-3 py-1.5">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <p class="text-green-700 text-xs">Agent Art successfully generated Tiktok video script "How Cyper changes social media"</p>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-0.5">5 minutes ago</p>
+                </div>
+            </div>
+            <div class="flex gap-2 mb-2">
+                <div class="w-6 h-6 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center">
+                    <span class="text-blue-600 font-medium text-xs">S</span>
+                </div>
+                <div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl px-3 py-1.5">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 text-blue-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <p class="text-blue-700 text-xs">Agent Art is generating your Tiktok video...</p>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-0.5">5 minutes ago</p>
+                </div>
+            </div>
+            <div class="flex gap-2 mb-2">
+                <div class="w-6 h-6 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center">
+                    <span class="text-blue-600 font-medium text-xs">S</span>
+                </div>
+                <div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl px-3 py-1.5">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 text-blue-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <p class="text-blue-700 text-xs">Agent Reader just summarized the page and saving current page to memory...</p>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-0.5">1 minutes ago</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Commands -->
+        <div class="px-4 pb-2 absolute bottom-[72px] left-0 right-0 bg-white border-t">
+            <div class="flex flex-wrap gap-2 py-3">
+                <button onclick="sendQuickCommand('QUICK CMD: Your favourite feeds...(Not included in demo)')" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full text-sm transition-colors">
+                    ⭐ Your favourites
+                </button>
+                <button onclick="sendQuickCommand('QUICK CMD: Refresh AI news threads...(Not included in demo)')" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full text-sm transition-colors">
+                    🤖 Pull AI news Threads
+                </button>
+                <button onclick="sendQuickCommand('QUICK CMD: Summarized web3 news...(Not included in demo)')" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full text-sm transition-colors">
+                    🌐 Summary Web3 news
+                </button>
+                <button onclick="sendQuickCommand('QUICK CMD: Market update...(Not included in demo)')" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full text-sm transition-colors">
+                    📊 Market Update
+                </button>
+                <button onclick="sendQuickCommand('QUICK CMD: Tech news...(Not included in demo)')" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full text-sm transition-colors">
+                    ✈️ Book Flight 
+                </button>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="absolute bottom-0 left-0 right-0 p-4 bg-white border-t">
+            <div class="flex gap-2">
+                <input type="text" 
+                       id="chatInput"
+                       class="flex-1 bg-gray-100 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                       placeholder="Type your message..."
+                       onkeypress="if(event.key === 'Enter') sendMessage()">
+                <button class="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Voice Input">
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                </button>
+                <button onclick="sendMessage()" class="px-4 py-2 bg-indigo-500 text-white rounded-full text-sm font-medium transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="copyTooltip" class="copy-tooltip">Copied!</div>
+</body>
+</html>

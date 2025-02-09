@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyper Store - Install Agents</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+        }
+    </style>
+    <script>
+        function toggleDrawer() {
+            const drawer = document.getElementById('chatDrawer');
+            const actionContent = document.getElementById('actionContent');
+            
+            if (drawer.classList.contains('translate-y-full')) {
+                drawer.classList.remove('translate-y-full');
+                setTimeout(() => {
+                    actionContent.scrollTop = actionContent.scrollHeight;
+                }, 300);
+            } else {
+                drawer.classList.add('translate-y-full');
+            }
+        }
+
+        function toggleInstall(agentId) {
+            const button = document.getElementById(`install-${agentId}`);
+            const isInstalled = button.getAttribute('data-installed') === 'true';
+            
+            if (isInstalled) {
+                button.innerHTML = 'Install';
+                button.className = 'px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors';
+                button.setAttribute('data-installed', 'false');
+            } else {
+                button.innerHTML = 'Uninstall';
+                button.className = 'px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm transition-colors';
+                button.setAttribute('data-installed', 'true');
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow mb-6">
+            <nav class="flex items-center p-4 border-b border-gray-200">
+                <div class="flex items-center gap-3 mr-6">
+                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+                        C
+                    </div>
+                    <span class="text-xl font-semibold">Cyper</span>
+                </div>
+
+                <div class="h-6 w-px bg-gray-200 mx-2"></div>
+
+                <div class="flex-1 flex flex-wrap items-center gap-2">
+                    <a href="/" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md font-medium">SQUARE</a>
+                    <a href="#" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md font-medium">BACKYARD</a>
+                    <a href="/store" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md font-medium">STORE</a>
+                </div>
+
+                <% console.log('=========================================='); %>
+                <% console.log('EJS Template Debug - userAddress:', typeof userAddress, userAddress); %>
+                <% console.log('EJS Template Debug - userInfo:', typeof userInfo, userInfo); %>
+                <% console.log('=========================================='); %>
+
+                <%_ if (typeof userAddress === 'string' && userAddress.length > 0) { _%>
+                    <div class="flex items-center gap-4">
+                        <%_ if (userInfo && userInfo.email) { _%>
+                            <div class="text-gray-700" id="userEmail">
+                                <%= userInfo.email %>
+                            </div>
+                        <%_ } _%>
+                        <div class="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg font-mono text-sm cursor-pointer hover:bg-gray-200 transition-colors" 
+                             onclick="copyToClipboard('<%= userAddress %>', event)"
+                             data-clipboard="<%= userAddress %>">
+                            <%= userAddress.substring(0, 6) %>...<%= userAddress.substring(userAddress.length - 4) %>
+                        </div>
+                        <button onclick="window.location.href='/auth/logout'" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+                            Logout
+                        </button>
+                    </div>
+                <%_ } else { _%>
+                    <button onclick="window.location.href='/auth/login'" class="ml-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                        Login
+                    </button>
+                <%_ } _%>
+            </nav>
+        </div>
+
+        <!-- Store Content -->
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">Skill Store</h1>
+        <div class="bg-white rounded-lg shadow p-6">
+            <!-- Skill Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- SUI SEND -->
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">SUI SEND</h3>
+                            <p class="text-sm text-gray-500 mt-1">Send SUI tokens to any address with ease</p>
+                        </div>
+                        <button id="install-sui-send" onclick="toggleInstall('sui-send')" data-installed="false" 
+                            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors">
+                            Install
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SUI SWAP -->
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">SUI SWAP</h3>
+                            <p class="text-sm text-gray-500 mt-1">Swap tokens on SUI network with best rates</p>
+                        </div>
+                        <button id="install-sui-swap" onclick="toggleInstall('sui-swap')" data-installed="false"
+                            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors">
+                            Install
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sync to X -->
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Sync to X</h3>
+                            <p class="text-sm text-gray-500 mt-1">Automatically sync your posts to X (Twitter)</p>
+                        </div>
+                        <button id="install-sync-x" onclick="toggleInstall('sync-x')" data-installed="false"
+                            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors">
+                            Install
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Hotel Booking -->
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Hotel Booking</h3>
+                            <p class="text-sm text-gray-500 mt-1">Book hotels worldwide with Cyper Agent</p>
+                        </div>
+                        <button id="install-hotel" onclick="toggleInstall('hotel')" data-installed="false"
+                            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors">
+                            Install
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Console Button -->
+    <button onclick="toggleDrawer()" class="group fixed bottom-6 right-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-5 py-3 rounded-xl shadow-lg hover:shadow-indigo-500/50 transition-all duration-300 flex items-center gap-3 border border-white/20 backdrop-blur-sm">
+        <div class="relative">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+        </div>
+        <span class="text-sm font-medium">Console</span>
+    </button>
+
+    <!-- Chat Drawer -->
+    <div id="chatDrawer" class="fixed inset-x-0 bottom-0 w-full bg-white shadow-lg transform translate-y-full transition-transform duration-300 ease-in-out rounded-t-xl" style="height: 50vh; min-height: 300px; max-height: 90vh;">
+        <!-- Drag Handle -->
+        <div id="dragHandle" class="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize flex justify-center items-center hover:bg-gray-100">
+            <div class="w-20 h-1 bg-gray-300 rounded-full"></div>
+        </div>
+        
+        <!-- Content -->
+        <div class="p-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">Console</h3>
+                <button onclick="toggleDrawer()" class="p-2 hover:bg-gray-100 rounded-lg">
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="actionContent" class="h-[calc(100%-4rem)] overflow-y-auto space-y-2">
+                <!-- Console content will go here -->
+                <div> Please wait, Not available on Store page yet</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
