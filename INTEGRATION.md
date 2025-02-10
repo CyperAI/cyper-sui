@@ -71,12 +71,3 @@ ElizaOS's memory system is crucial for maintaining agent state and user context.
 |  - Other services                                        |
 +----------------------------------------------------------+
 ```
-
-```typescript
-class WalrusService {
-    async uploadAgentMemory(memory: Memory) {
-        // Upload to WALRUS with content addressing
-        const result = await this.uploadJson(memory);
-        return result.blobId;
-    }
-}
