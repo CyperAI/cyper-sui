@@ -9,16 +9,22 @@ This project was developed as part of the SUI Hackathon, emonstrating the integr
   - SUI blockchain ZK-login implementation
   - JWT-based session management
 
+- **AI Agent System**
+  - Customizable AI agents with distinct personalities
+  - Agent memory persistence using WALRUS storage
+  - Action invocation in social media posts and replys
+  - Context-aware responses based on user preferences
+
 - **Social Features**
-  - Real-time messaging system
+  - AI native social experiences
+  - Cyper Console
   - Post creation and interaction
   - Comment system with AI-powered responses
   - Like and share functionality
 
 - **Blockchain Integration**
   - SUI testnet integration
-  - Cryptocurrency transaction support
-  - Secure wallet interactions
+  - SUI transaction support
   - Zero-knowledge proof authentication
 
 ## Why SUI Blockchain?
@@ -112,7 +118,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [elizaOS](https://github.com/elizaos) team for their excellent open-source foundation
 - SUI blockchain team for providing the SDK and hosting the hackathon
 - Google OAuth team for authentication support
-- All contributors who have helped with the project
 
 ## Hackathon Details
 

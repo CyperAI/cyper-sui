@@ -6,9 +6,6 @@ import {
   stringToUuid,
   type Character,
 } from "@elizaos/core";
-import { bootstrapPlugin } from "@elizaos/plugin-bootstrap";
-import { createNodePlugin } from "@elizaos/plugin-node";
-import { solanaPlugin } from "@elizaos/plugin-solana";
 import * as path from 'path';
 import { fileURLToPath } from "url";
 import express, { Request, Response } from 'express';
