@@ -72,38 +72,6 @@ ElizaOS's memory system is crucial for maintaining agent state and user context.
 +----------------------------------------------------------+
 ```
 
-
-### 1. Authentication Flow
-```typescript
-class AuthController {
-    async login(req: Request, res: Response) {
-        // Generate ephemeral keypair for SUI ZK-login
-        const ephemeralKeyPair = new Ed25519Keypair();
-        const nonce = generateNonce(ephemeralKeyPair.getPublicKey());
-        
-        // Integrate with Google OAuth
-        const authUrl = generateGoogleAuthUrl(nonce);
-        res.redirect(authUrl);
-    }
-}
-```
-
-### 2. Agent Configuration
-```typescript
-const agentConfig = {
-    plugins: ["@elizaos/plugin-sui"],
-    modelProvider: "openai",
-    settings: {
-        // SUI-specific settings
-        network: "testnet",
-        // ElizaOS settings
-        memory: true,
-        contextWindow: 10
-    }
-};
-```
-
-### 3. Storage Integration
 ```typescript
 class WalrusService {
     async uploadAgentMemory(memory: Memory) {
